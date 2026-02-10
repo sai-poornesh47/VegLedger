@@ -1,0 +1,59 @@
+:root {
+  /* The "Green Leaf" Palette */
+  --primary-green: #10b981;       /* Vibrant Emerald */
+  --dark-green: #064e3b;          /* Deep Forest (Text/Headers) */
+  --light-green: #d1fae5;         /* Mint (Backgrounds) */
+  --white-surface: #ffffff;
+  --bg-gradient: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+
+  /* Functional Colors */
+  --danger: #ef4444;
+  --text-main: #1f2937;
+  --text-muted: #6b7280;
+  --shadow-soft: 0 10px 15px -3px rgba(16, 185, 129, 0.1), 0 4px 6px -2px rgba(16, 185, 129, 0.05);
+  --shadow-strong: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  /* Modern Radius */
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+body {
+  margin: 0;
+  font-family: 'Poppins', sans-serif;  background: var(--bg-gradient);
+  color: var(--text-main);
+  min-height: 100vh;
+  -webkit-tap-highlight-color: transparent; /* Removes blue highlight on mobile tap */
+}
+
+input, button, select {
+  font-family: inherit;
+}
+
+/* NEW: Intelligent Page Spacing */
+.page-wrapper {
+  max-width: 600px;
+  margin: 0 auto;
+  min-height: 100vh;
+
+  /* Mobile Default: Nav is at bottom, so we need space there */
+  padding-top: 20px;
+  padding-bottom: 100px;
+}
+
+/* Desktop Override: Nav is at top, so push content down */
+@media (min-width: 768px) {
+  .page-wrapper {
+    padding-top: 100px; /* CLEARS THE TOP NAVBAR */
+    padding-bottom: 20px;
+  }
+}
+
+/* Scrollbar hiding for clean look */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}

@@ -1,0 +1,158 @@
+/* client/src/components/Navbar.css */
+
+:root {
+  --nav-glass: rgba(255, 255, 255, 0.85);
+  --nav-border: 1px solid rgba(255, 255, 255, 0.6);
+  --nav-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
+  --primary: #10b981;
+  --text-dark: #0f172a;
+  --text-light: #64748b;
+}
+
+/* --- THE CONTAINER --- */
+.navbar-wrapper {
+  position: fixed;
+  top: 0; left: 0; width: 100%;
+  z-index: 1000;
+  display: flex; justify-content: center;
+  pointer-events: none; /* Let clicks pass through empty space */
+}
+
+/* THE FLOATING ISLAND (Desktop) */
+.navbar {
+  margin-top: 20px;
+  background: var(--nav-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: var(--nav-border);
+  padding: 8px 12px;
+  border-radius: 24px;
+  box-shadow: var(--nav-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  pointer-events: auto; /* Re-enable clicks */
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  min-width: 600px;
+}
+
+/* --- LOGO SECTION --- */
+.nav-logo-link {
+  text-decoration: none;
+  display: flex; align-items: center; gap: 8px;
+  padding-left: 12px;
+  cursor: pointer;
+}
+
+.logo-icon-box {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  color: white;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+}
+
+.logo-text {
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text-dark);
+  letter-spacing: -0.5px;
+}
+
+/* --- NAVIGATION LINKS --- */
+.nav-menu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(241, 245, 249, 0.5); /* Subtle inner track */
+  padding: 5px;
+  border-radius: 20px;
+}
+
+.nav-item {
+  position: relative;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 20px;
+  text-decoration: none;
+  color: var(--text-light);
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 16px;
+  transition: all 0.2s ease;
+}
+
+.nav-item svg { width: 18px; height: 18px; stroke-width: 2.5px; }
+
+/* HOVER STATE */
+.nav-item:hover {
+  color: var(--primary);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+/* ACTIVE STATE (The Green Pill) */
+.nav-item.active {
+  background: white;
+  color: var(--primary);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  font-weight: 700;
+}
+.nav-item.active svg { stroke: var(--primary); }
+
+/* --- MOBILE STYLES (Bottom Dock) --- */
+@media (max-width: 768px) {
+  .navbar-wrapper {
+    top: auto; bottom: 0;
+    padding: 0;
+  }
+
+  .navbar {
+    margin: 0;
+    width: 100%;
+    min-width: auto;
+    border-radius: 24px 24px 0 0; /* Only top corners */
+    padding: 10px 20px 30px 20px; /* Extra bottom padding for iPhone home bar */
+    justify-content: space-between;
+    gap: 0;
+    border-bottom: none;
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  /* Hide Logo on Mobile to save space (User focuses on tools) */
+  .nav-logo-link { display: none; }
+
+  .nav-menu {
+    background: transparent;
+    width: 100%;
+    justify-content: space-between;
+    padding: 0;
+  }
+
+  .nav-item {
+    flex-direction: column;
+    padding: 8px 0;
+    font-size: 0.7rem;
+    gap: 4px;
+    background: transparent !important; /* Remove pill bg on mobile */
+    box-shadow: none !important;
+    width: 60px;
+  }
+
+  .nav-item svg { width: 24px; height: 24px; transition: transform 0.2s; }
+
+  /* Mobile Active State */
+  .nav-item.active { color: var(--primary); }
+  .nav-item.active svg { transform: translateY(-3px); }
+
+  /* Floating Dot for Mobile Active */
+  .nav-item.active::after {
+    content: '';
+    width: 4px; height: 4px;
+    background: var(--primary);
+    border-radius: 50%;
+    position: absolute;
+    bottom: 4px;
+  }
+}
