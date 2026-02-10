@@ -1,311 +1,183 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, CheckCircle, ChevronDown, User, Plus, Minus, Building2, ShoppingBag, ArrowRight, Trash2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Trash2, Save, Calculator, ArrowLeft, RefreshCw } from 'lucide-react';
 import api from '../api/axios';
 import './DailyCalculator.css';
 
 const DailyCalculator = () => {
-  // --- STATE ---
+  const navigate = useNavigate();
+
+  // Data State
+  const [items, setItems] = useState([{ id: 1, name: '', weight: '', price: '', total: 0 }]);
   const [clients, setClients] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [selectedClientId, setSelectedClientId] = useState('');
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [cart, setCart] = useState([]);
-
-  // Dropdown Logic
-  const [isClientOpen, setIsClientOpen] = useState(false);
-  const dropdownRef = useRef(null);
-
-  // Modal Logic (Weight Entry)
-  const [activeVeggie, setActiveVeggie] = useState(null);
-  const [currentWeight, setCurrentWeight] = useState(1);
-
-  // Bill Review Modal Logic
-  const [isReviewOpen, setIsReviewOpen] = useState(false);
-
-  // Saving Logic
+  const [selectedClient, setSelectedClient] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [isSaving, setIsSaving] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
 
-  // --- EFFECTS ---
+  // Fetch Clients & Products on Load
   useEffect(() => {
-    const load = async () => {
+    const fetchData = async () => {
       try {
-        const [c, p] = await Promise.all([api.get('/clients'), api.get('/products')]);
-        setClients(c.data);
-        setProducts(p.data);
-        if (c.data.length > 0) setSelectedClientId(c.data[0].id);
-      } catch (e) { console.error(e); }
+        const clientRes = await api.get('/clients');
+        setClients(clientRes.data);
+      } catch (err) {
+        console.error("Error loading data:", err);
+      }
     };
-    load();
+    fetchData();
   }, []);
 
-  useEffect(() => {
-    const clickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsClientOpen(false);
-    };
-    document.addEventListener("mousedown", clickOutside);
-    return () => document.removeEventListener("mousedown", clickOutside);
-  }, []);
-
-  // --- ACTIONS ---
-
-  // 1. Add/Edit Item (Opens Weight Modal)
-  const openModal = (p) => {
-    const exist = cart.find(i => i.name === p.name);
-    setCurrentWeight(exist ? exist.weight : 1);
-    setActiveVeggie(p);
+  // --- Calculations ---
+  const calculateTotal = (weight, price) => {
+    const w = parseFloat(weight) || 0;
+    const p = parseFloat(price) || 0;
+    return (w * p).toFixed(2);
   };
 
-  const confirmWeight = () => {
-    if (!activeVeggie) return;
-    setCart(prev => {
-      const rest = prev.filter(i => i.name !== activeVeggie.name);
-      return [...rest, {
-        id: activeVeggie.id, name: activeVeggie.name, emoji: activeVeggie.icon_emoji,
-        weight: parseFloat(currentWeight), price: parseFloat(activeVeggie.default_price),
-        total: (parseFloat(currentWeight) * parseFloat(activeVeggie.default_price)).toFixed(2)
-      }];
-    });
-    setActiveVeggie(null);
-  };
+  const grandTotal = items.reduce((acc, item) => acc + (parseFloat(item.total) || 0), 0);
 
-  // 2. Adjust Item inside Review Modal
-  const adjustCartItem = (id, delta) => {
-    setCart(prev => prev.map(item => {
+  // --- Handlers ---
+  const handleItemChange = (id, field, value) => {
+    const newItems = items.map(item => {
       if (item.id === id) {
-        const newWeight = Math.max(0.5, item.weight + delta);
-        return {
-          ...item,
-          weight: newWeight,
-          total: (newWeight * item.price).toFixed(2)
-        };
+        const updatedItem = { ...item, [field]: value };
+        if (field === 'weight' || field === 'price') {
+          updatedItem.total = calculateTotal(
+            field === 'weight' ? value : item.weight,
+            field === 'price' ? value : item.price
+          );
+        }
+        return updatedItem;
       }
       return item;
-    }));
+    });
+    setItems(newItems);
   };
 
-  const removeCartItem = (id) => {
-    const newCart = cart.filter(item => item.id !== id);
-    setCart(newCart);
-    if (newCart.length === 0) setIsReviewOpen(false); // Close modal if empty
+  const addItem = () => {
+    setItems([...items, { id: Date.now(), name: '', weight: '', price: '', total: 0 }]);
   };
 
-  // 3. Save Final Order
+  const removeItem = (id) => {
+    if (items.length > 1) {
+      setItems(items.filter(item => item.id !== id));
+    }
+  };
+
   const handleSave = async () => {
-    if (!selectedClientId) return alert("Select Client");
+    if (!selectedClient) return alert("Please select a client!");
+    if (grandTotal <= 0) return alert("Total cannot be zero!");
+
     setIsSaving(true);
     try {
       await api.post('/transactions', {
-        client_id: parseInt(selectedClientId),
-        total_amount: cart.reduce((acc, i) => acc + parseFloat(i.total), 0),
-        items: cart, date: new Date()
+        client_id: selectedClient,
+        total_amount: grandTotal,
+        items: items.filter(i => i.name && i.total > 0),
+        date: date
       });
+      navigate('/bills'); // Redirect to history after save
+    } catch (err) {
+      alert("Failed to save bill.");
+      console.error(err);
+    } finally {
       setIsSaving(false);
-      setIsReviewOpen(false); // Close review modal
-      setShowSuccess(true);
-      setTimeout(() => { setShowSuccess(false); setCart([]); }, 2000);
-    } catch { setIsSaving(false); alert("Error saving bill"); }
+    }
   };
 
-  const currentClient = clients.find(c => c.id == selectedClientId) || {};
-  const filtered = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  const grandTotal = cart.reduce((acc, i) => acc + parseFloat(i.total), 0);
-
   return (
-    <div className="pos-container">
+    <div className="calculator-container">
 
-      {/* 1. HEADER */}
-      <div className="glass-header">
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+      {/* 1. FIXED HEADER */}
+      <div className="calc-header">
+        <div className="calc-title" onClick={() => navigate('/')} style={{cursor:'pointer'}}>
+          <ArrowLeft size={20} /> Daily Entry
+        </div>
+        <input
+          type="date"
+          className="date-picker"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          style={{padding:'6px', borderRadius:'6px', border:'1px solid #cbd5e1'}}
+        />
+      </div>
 
-          {/* CUSTOM DROPDOWN */}
-          <div className="client-dropdown-container" ref={dropdownRef}>
-            <div className="dropdown-trigger" onClick={() => setIsClientOpen(!isClientOpen)}>
-              <div className="trigger-content">
-                <div className="trigger-icon-box"><Building2 size={20}/></div>
-                <div className="trigger-text-group">
-                  <span className="label-tiny">Billing To</span>
-                  <span className="label-main">{currentClient.name || "Select..."}</span>
-                </div>
-              </div>
-              <ChevronDown size={18} color="#94a3b8" />
+      {/* 2. SCROLLABLE BODY */}
+      <div className="calc-body">
+
+        {/* Client Selector */}
+        <div style={{marginBottom:'20px'}}>
+            <label style={{display:'block', marginBottom:'8px', fontWeight:'600', color:'#475569'}}>Select Client</label>
+            <select
+                value={selectedClient}
+                onChange={(e) => setSelectedClient(e.target.value)}
+                style={{width:'100%', padding:'12px', borderRadius:'10px', border:'1px solid #cbd5e1', fontSize:'1rem'}}
+            >
+                <option value="">-- Choose Client --</option>
+                {clients.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+            </select>
+        </div>
+
+        {/* Item List */}
+        {items.map((item, index) => (
+          <div key={item.id} className="input-row">
+            {/* Name */}
+            <input
+              placeholder="Item Name"
+              value={item.name}
+              onChange={(e) => handleItemChange(item.id, 'name', e.target.value)}
+            />
+            {/* Weight */}
+            <input
+              type="number"
+              placeholder="Kg"
+              value={item.weight}
+              onChange={(e) => handleItemChange(item.id, 'weight', e.target.value)}
+            />
+            {/* Price */}
+            <input
+              type="number"
+              placeholder="₹/Kg"
+              value={item.price}
+              onChange={(e) => handleItemChange(item.id, 'price', e.target.value)}
+            />
+            {/* Remove Btn */}
+            <button className="remove-btn" onClick={() => removeItem(item.id)}>
+              <Trash2 size={16} />
+            </button>
+
+            {/* Line Total (Small Display below inputs for clarity) */}
+            <div style={{gridColumn:'1 / -1', textAlign:'right', fontSize:'0.85rem', color:'#64748b', marginTop:'-5px'}}>
+               Total: ₹{item.total || 0}
             </div>
-
-            <AnimatePresence>
-              {isClientOpen && (
-                <motion.div
-                  className="custom-dropdown-menu"
-                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                >
-                  {clients.map(c => (
-                    <div
-                      key={c.id}
-                      className={`dropdown-item ${selectedClientId == c.id ? 'selected' : ''}`}
-                      onClick={() => { setSelectedClientId(c.id); setIsClientOpen(false); }}
-                    >
-                      <div className="item-initial">{c.name.charAt(0)}</div>
-                      <span style={{fontWeight: selectedClientId == c.id ? '700' : '500'}}>{c.name}</span>
-                      {selectedClientId == c.id && <CheckCircle size={16} color="#10b981" style={{marginLeft:'auto'}}/>}
-                    </div>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
+        ))}
 
-          {/* SEARCH */}
-          <div className="search-input-wrapper" style={{ flex: 1 }}>
-            <Search size={18} color="#94a3b8"/>
-            <input placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/>
-          </div>
+        <button className="add-item-btn" onClick={addItem}>
+          <Plus size={18} /> Add New Item
+        </button>
+
+      </div>
+
+      {/* 3. FIXED FOOTER (Total & Save) */}
+      <div className="calc-footer">
+        <div className="total-display">
+          <span>Grand Total</span>
+          <span className="total-amount">₹ {grandTotal.toFixed(2)}</span>
+        </div>
+
+        <div className="action-buttons">
+          <button className="btn-secondary" onClick={() => setItems([{ id: Date.now(), name: '', weight: '', price: '', total: 0 }])}>
+            <RefreshCw size={18} /> Reset
+          </button>
+
+          <button className="btn-primary" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? "Saving..." : <><Save size={18} /> Save Bill</>}
+          </button>
         </div>
       </div>
-
-      {/* 2. GRID */}
-      <div className="pro-grid">
-        {filtered.map(p => {
-          const inCart = cart.find(i => i.name === p.name);
-          return (
-            <motion.div
-              key={p.id} className={`pro-card ${inCart ? 'in-cart' : ''}`}
-              whileTap={{ scale: 0.95 }} onClick={() => openModal(p)}
-            >
-              <span className="pro-emoji">{p.icon_emoji}</span>
-              <span className="pro-name">{p.name}</span>
-              <span className="pro-price">₹{p.default_price}</span>
-              {inCart && <div className="count-badge">{inCart.weight}</div>}
-            </motion.div>
-          );
-        })}
-      </div>
-
-      {/* 3. WEIGHT INPUT MODAL */}
-      <AnimatePresence>
-        {activeVeggie && (
-          <div className="modal-overlay" onClick={() => setActiveVeggie(null)}>
-            <motion.div
-              className="weight-modal"
-              onClick={e => e.stopPropagation()}
-              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-            >
-              <button className="close-modal" onClick={() => setActiveVeggie(null)}><X size={20}/></button>
-
-              <div className="modal-content-wrapper">
-                <span className="modal-emoji">{activeVeggie.icon_emoji}</span>
-                <h3 className="modal-title">{activeVeggie.name}</h3>
-                <span className="modal-subtitle">Current Rate: ₹{activeVeggie.default_price}/kg</span>
-
-                <div className="input-row-container">
-                  <button className="round-btn" onClick={() => setCurrentWeight(prev => Math.max(0.5, prev - 0.5))}><Minus size={20}/></button>
-                  <div className="input-display-box">
-                    <input
-                      type="number" className="big-input"
-                      value={currentWeight}
-                      onChange={e => setCurrentWeight(parseFloat(e.target.value))}
-                      onFocus={e => e.target.select()}
-                    />
-                    <div className="unit-label">KG</div>
-                  </div>
-                  <button className="round-btn" onClick={() => setCurrentWeight(prev => prev + 0.5)}><Plus size={20}/></button>
-                </div>
-
-                <div className="chip-row">
-                  <div className="chip" onClick={() => setCurrentWeight(prev => prev + 1)}>+1</div>
-                  <div className="chip" onClick={() => setCurrentWeight(prev => prev + 2)}>+2</div>
-                  <div className="chip" onClick={() => setCurrentWeight(prev => prev + 5)}>+5</div>
-                </div>
-
-                <button className="modal-save-btn" onClick={confirmWeight}>
-                  Update Cart • ₹{(currentWeight * activeVeggie.default_price).toFixed(0)}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* 4. GRAND TOTAL DOCK (Updated with View Bill) */}
-      <AnimatePresence>
-        {cart.length > 0 && !isReviewOpen && (
-          <motion.div className="grand-dock" initial={{y:100}} animate={{y:0}} exit={{y:100}}>
-            <div className="dock-info">
-              <span className="dock-label">{cart.length} ITEMS ADDED</span>
-              <span className="dock-total">₹{grandTotal.toFixed(0)}</span>
-            </div>
-
-            <button className="view-bill-btn" onClick={() => setIsReviewOpen(true)}>
-              View Bill <ShoppingBag size={18} />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 5. REVIEW BILL MODAL (New Feature) */}
-      <AnimatePresence>
-        {isReviewOpen && (
-          <div className="modal-overlay" onClick={() => setIsReviewOpen(false)}>
-            <motion.div
-              className="bill-review-modal"
-              onClick={e => e.stopPropagation()}
-              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            >
-              <div className="review-header">
-                <h3>Current Bill</h3>
-                <button className="close-icon-btn" onClick={() => setIsReviewOpen(false)}><X size={20}/></button>
-              </div>
-
-              <div className="review-list">
-                {cart.map(item => (
-                  <div key={item.id} className="review-item">
-                    <div className="r-left">
-                      <span className="r-emoji">{item.emoji}</span>
-                      <div>
-                        <div className="r-name">{item.name}</div>
-                        <div className="r-rate">₹{item.price}/kg</div>
-                      </div>
-                    </div>
-
-                    <div className="r-right">
-                      <div className="r-stepper">
-                        <button onClick={() => adjustCartItem(item.id, -0.5)}>-</button>
-                        <span>{item.weight}</span>
-                        <button onClick={() => adjustCartItem(item.id, 0.5)}>+</button>
-                      </div>
-                      <div className="r-total">₹{Math.round(item.total)}</div>
-                      <button className="r-delete" onClick={() => removeCartItem(item.id)}><Trash2 size={18}/></button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="review-footer">
-                <div className="review-total-row">
-                  <span>Grand Total</span>
-                  <span>₹{grandTotal.toFixed(0)}</span>
-                </div>
-                <button className="final-save-btn" onClick={handleSave} disabled={isSaving}>
-                  {isSaving ? 'Saving...' : 'SAVE ORDER'}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* 6. SUCCESS SCREEN */}
-      <AnimatePresence>
-        {showSuccess && (
-          <div className="success-screen">
-            <motion.div initial={{scale:0}} animate={{scale:1}} transition={{type:'spring'}}>
-              <CheckCircle size={100} color="#10b981"/>
-            </motion.div>
-            <h1 style={{color:'#0f172a', marginTop:'20px'}}>Saved!</h1>
-          </div>
-        )}
-      </AnimatePresence>
 
     </div>
   );
