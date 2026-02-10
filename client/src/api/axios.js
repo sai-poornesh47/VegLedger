@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // This points to your running Express server
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: 'https://vegledger-api.onrender.com/api',
 });
 
 export default api;
