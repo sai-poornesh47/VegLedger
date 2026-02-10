@@ -1,19 +1,26 @@
-const { Pool } = require('pg');
-const dns = require('dns'); // Import the DNS module
+const Pool = require('pg').Pool;
 require('dotenv').config();
 
-// FIX: Force Node.js to use IPv4 first (Solves ETIMEDOUT on IPv6)
-if (dns.setDefaultResultOrder) {
-  dns.setDefaultResultOrder('ipv4first');
-}
+// 1. Config for Local Development (Your Laptop)
+const devConfig = {
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME
+};
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+// 2. Config for Production (Render / Supabase)
+const proConfig = {
+  connectionString: process.env.DATABASE_URL, // Render provides this
   ssl: {
-    rejectUnauthorized: false
-  },
-  // Add a connection timeout to fail faster if it hangs
-  connectionTimeoutMillis: 5000,
-});
+    rejectUnauthorized: false // Required for Supabase
+  }
+};
+
+// 3. Logic: If Render provides a URL, use it. Otherwise, use local config.
+const pool = new Pool(
+  process.env.DATABASE_URL ? proConfig : devConfig
+);
 
 module.exports = pool;
